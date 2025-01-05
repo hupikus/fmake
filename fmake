@@ -1,0 +1,199 @@
+#! /bin/bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+run_build=false
+build_folder_name="build"
+move_build_to_parent=true
+print_time=false
+clean=false
+verbose=true
+if [[ $1 == "-s" || $1 == "--silent" ]]; then
+verbose=false
+fi
+
+projectname=$(basename $(pwd))
+
+if ${verbose}; then
+    echo -e "${CYAN}FMake v0.25${NC}"
+fi
+
+if [[ $1 == "-#h" || $1 == "--#help" ]]; then
+echo -e "${RED}I will not help.${NC}"
+exit
+fi
+
+if [[ $1 == "-h" || $1 == "--help" || $2 == "-h" ]]; then
+if ${verbose}; then
+echo "Options"
+echo -e "${RED}Add # before flag to enable opposite effect${NC}"
+echo "Example: -#c -  Do not clean *.o files after finish"
+echo -e "${YELLOW}  -c, --clean${NC}   \t Clean *.o files after finish"
+echo -e "${YELLOW}  -h, --help${NC}    \t Print this text"
+echo -e "${YELLOW}  -p, --pass-run${NC}\t Skip running build for once"
+echo -e "${YELLOW}  -r, --reset${NC}   \t Restore config initial state"
+echo -e "${YELLOW}  -s, --silent${NC}  \t No verbose"
+echo -e "${YELLOW}  -t, --time${NC}    \t Print current time"
+fi
+else
+
+#config
+if  [ ! -f "${HOME}/.config/fmake.conf" ]; then
+if ${verbose}; then
+    echo -e "${YELLOW}Creating config in ${HOME}/.config/fmake.conf...${NC}"
+fi
+mkdir -p "${HOME}/.config"
+touch "${HOME}/.config/fmake.conf"
+echo "#execute your own pre-config bash scripts here" >> "${HOME}/.config/fmake.conf"
+echo "run_build=false" >> "${HOME}/.config/fmake.conf"
+echo "verbose=true" >> "${HOME}/.config/fmake.conf"
+echo 'build_folder_name="build"' >> "${HOME}/.config/fmake.conf"
+echo "move_build_to_parent=true" >> "${HOME}/.config/fmake.conf"
+echo "print_time=false" >> "${HOME}/.config/fmake.conf"
+echo "clean=false" >> "${HOME}/.config/fmake.conf"
+else
+if ${verbose}; then
+    echo -e "${CYAN}Reading config...${NC}"
+fi
+source "${HOME}/.config/fmake.conf"
+fi
+
+#parse arguments
+for arg in "$@"; do
+    if [[ "$arg" == "-p" || "$arg" == "--pass-run" ]]; then
+    if ${run_build}; then
+        if ${verbose}; then
+            echo -e "${CYAN}Ignoring running build for this time.${NC}"
+        fi
+    run_build=false
+    fi
+
+    elif [[ "$arg" == "-s" || "$arg" == "--silent" ]]; then verbose=false
+    elif [[ "$arg" == "-#s" || "$arg" == "--#silent" ]]; then verbose=true
+
+    elif [[ "$arg" == "-t" || "$arg" == "--time" ]]; then print_time=true
+
+    if [[ ${verbose} == false ]]; then
+        echo -e "${GREEN}$(date "+%Y.%m.%d %H:%M:%S")${NC}"
+    fi
+    elif [[ "$arg" == "-#t" || "$arg" == "--#time" ]]; then print_time=false
+
+    elif [[ "$arg" == "-c" || "$arg" == "--clean" ]]; then clean=true
+    elif [[ "$arg" == "-#c" || "$arg" == "--#clean" ]]; then clean=false
+
+    elif [[ "$arg" == "-r" || "$arg" == "--reset" ]]; then
+    cp "${HOME}/.config/fmake.conf" "${HOME}/.config/fmake.conf.old"
+    rm "${HOME}/.config/fmake.conf"
+    if ${verbose}; then echo -e "${RED}Config deleted${NC}"
+    fi
+    elif [[ "$arg" == "-#r" || "$arg" == "--#reset" ]]; then
+    cp "${HOME}/.config/fmake.conf.old" "${HOME}/.config/fmake.conf"
+    if ${verbose}; then echo -e "${GREEN}Config recovered${NC}"
+    fi
+
+    fi
+done
+
+if ${print_time}; then
+    if ${verbose}; then
+    echo -e "${GREEN}$(date "+%Y.%m.%d %H:%M:%S")${NC}"
+    fi
+fi
+
+if [ ${projectname} == ${build_folder_name} ]; then
+cd ..
+projectname=$(basename $(pwd))
+fi
+cd ${build_folder_name}
+build_name=${projectname}
+
+
+
+if [ ! -f "${HOME}/.cache/fmake" ]; then
+mkdir -p "${HOME}/.cache/fmake"
+if ${verbose}; then
+    echo -e "${YELLOW}Created folder in ${HOME}/.cache/fmake${NC}"
+fi
+fi
+
+if [ -f ../CMakeLists.txt ]; then
+
+if [ ! -f "${HOME}/.cache/fmake/${projectname}" ]; then
+touch "${HOME}/.cache/fmake/${projectname}"
+if ${verbose}; then
+    echo -e "${YELLOW}New project initialized...${NC}"
+fi
+fi
+
+if ! cmp -s "../CMakeLists.txt" "${HOME}/.cache/fmake/${projectname}"; then
+cp "../CMakeLists.txt" "${HOME}/.cache/fmake/${projectname}"
+if ${verbose}; then
+    echo -e "${GREEN}Updating cmake${NC}"
+fi
+if ${verbose}; then
+    cmake ..
+else
+    cmake .. >> /dev/null
+fi
+else
+if ${verbose}; then
+    echo -e "${GREEN}CMake skipped...${NC}"
+fi
+fi
+else
+if ${verbose}; then
+    echo -e "${RED}$(pwd)/CMakeLists.txt not found...${NC}"
+fi
+fi
+if ${verbose}; then
+    make
+else
+    make >> /dev/null
+fi
+if ${move_build_to_parent}; then
+mv ./${build_name} ..
+cd ..
+fi
+
+#cleaning
+if ${clean}; then
+if ${verbose}; then
+    echo -e "${CYAN}Cleaning started...  ${NC}"
+fi
+for file in $(find ./ -type f -name "*.cpp"); do
+if [ -f "${file%.cpp}.o" ]; then
+if ${verbose}; then
+    echo -e "Removing ${RED}${file%.cpp}.o${NC}"
+fi
+rm "${file%.cpp}.o"
+fi
+done
+
+
+fi
+
+if ${run_build}; then
+if ${verbose}; then
+    echo -e "${CYAN}Running $(pwd)/${build_name}...${NC}"
+fi
+./${build_name}
+if ${verbose}; then
+    echo -e "${YELLOW}Executable closed${NC}"
+    if ${print_time}; then
+    echo -e "${GREEN}$(date "+%Y.%m.%d %H:%M:%S")${NC}"
+    fi
+fi
+
+else
+
+if ${verbose}; then
+    echo -e "${YELLOW}Not running: skipped${NC}"
+fi
+
+fi
+
+fi
