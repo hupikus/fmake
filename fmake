@@ -19,7 +19,7 @@ fi
 projectname=$(basename $(pwd))
 
 if ${verbose}; then
-    echo -e "${CYAN}FMake v0.25${NC}"
+    echo -e "${CYAN}FMake v0.26${NC}"
 fi
 
 if [[ $1 == "-#h" || $1 == "--#help" ]]; then
@@ -154,6 +154,14 @@ if ${verbose}; then
 else
     make >> /dev/null
 fi
+
+if [ $? -ne 0 ]; then
+if ${verbose}; then
+    echo -e "${RED}Make failed with error. Stop.${NC}"
+fi
+exit
+fi
+
 if ${move_build_to_parent}; then
 mv ./${build_name} ..
 cd ..
