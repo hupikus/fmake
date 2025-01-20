@@ -108,6 +108,9 @@ if [ ${projectname} == ${build_folder_name} ]; then
 cd ..
 projectname=$(basename $(pwd))
 fi
+if [ ! -f "${build_folder_name}" ]; then
+mkdir -p "${build_folder_name}"
+fi
 cd ${build_folder_name}
 build_name=${projectname}
 
